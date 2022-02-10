@@ -73,7 +73,7 @@ GetUn(shortlink string) (model.DataEl, error)
 
 Для работы с API был также написан клиент на node js. Файлы находятся в папке nodejs/proj1 Запуск из этой папки командой: node server.js Заход: http://127.0.0.1:8090/
 
-erver node.js started http://127.0.0.1:8090 (API URL: https://web-link19801.herokuapp.com )
+server node.js started http://127.0.0.1:8090 (API URL:  )
 
 #posgres migrations make: (dir called migrations)
 -- go get -tags 'postgres' -u github.com/golang-migrate/migrate/cmd/migrate or brew install golang-migrate (mac)
