@@ -1,14 +1,40 @@
-name: pre-commit
+name: My Go
 
 on:
-  pull_request:
   push:
-
-    branches: [main]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   pre-commit:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - uses: pre-commit/action@v2.0.2
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+    - uses: pre-commit/action@v2.0.2
+
+  CheckAndTest:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.3
+
+    - name: Test API
+      run: cd web-link && go test ./...
+
+    - name: Install GolangCI-lint
+      run: go get github.com/golangci/golangci-lint/cmd/golangci-lint
+
+    - name: Install Golint
+      run: go get -u golang.org/x/lint/golint
+
+    - name: Check Golint
+      run: cd web-link && golint $(go list ./... | grep -v /vendor/)
+
+    - name: Check Golangci-lint
+      run: cd web-link && golangci-lint run ./...
