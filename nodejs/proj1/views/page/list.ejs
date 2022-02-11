@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../part/head'); %>
+    <script>
+        "use strict";
+        window.onload = doStuff;
+        //to ensure everything is found load page first
+        function doStuff() {
+
+            console.log('Client-side code running');
+            //doListeners();
+
+            function doListeners() {
+                // listeners for delete buttons
+                var buttons = document.querySelectorAll(".MyDelButton");
+                var i = 0, length = buttons.length;
+                for (i; i < length; i++) {
+                    if (document.addEventListener) {
+                        buttons[i].addEventListener("click", function () {
+                            // use keyword this to target clicked button
+                            console.log(`del button with key ${this.id} was clicked`);
+                            var id = this.id
+                            // send key to node js
+                            fetch('/delete', {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({'shorturl': id})
+                            })
+                                .then(function (response) {
+                                    if (response.ok) {
+                                        console.log('click del was recorded');
+                                        if (response.redirect) {
+                                            document.location.href = response.redirect;
+                                        }
+                                        return;
+                                    }
+                                    throw new Error('Request failed.');
+                                })
+                                .catch(function (error) {
+                                    console.log(error);
+                                });
+
+                        });
+                    } else {
+                        buttons[i].attachEvent("onclick", function () {
+                            // use buttons[i] to target clicked button
+                        });
+                    }
+                }
+
+                //edit buttons
+                var buttonsEd = document.querySelectorAll(".MyEdButton");
+                var i = 0, length = buttonsEd.length;
+                for (i; i < length; i++) {
+                    if (document.addEventListener) {
+                        buttonsEd[i].addEventListener("click", function () {
+                            // use keyword this to target clicked button
+                            console.log(`button edit with key ${this.id} was clicked`);
+                            var id = this.id
+                            // send key to node js
+                            window.location.href = '<%= nodejs %>/edit?shorturl=' + id;
+
+                        });
+                    } else {
+                        buttonsEd[i].attachEvent("onclick", function () {
+                            // use buttons[i] to target clicked button
+                        });
+                    }
+
+                }
+
+                //edit buttons
+                var buttonsCh = document.querySelectorAll(".MyChButton");
+                var i = 0, length = buttonsCh.length;
+                for (i; i < length; i++) {
+                    if (document.addEventListener) {
+                        buttonsCh[i].addEventListener("click", function () {
+                            // use keyword this to target clicked button
+                            console.log(`button check with key ${this.id} was clicked`);
+                            let id = this.id
+                            // send key to node js
+                            window.location.href = '<%= nodejs %>/check?shorturl=' + id;
+                        });
+                    } else {
+                        buttonsEd[i].attachEvent("onclick", function () {
+                            // use buttons[i] to target clicked button
+                        });
+                    }
+
+                }
+
+            }
+
+            // add link button handler
+            var addbutton = document.getElementById('addbutton');
+            addbutton.addEventListener('click', function (e) {
+                e.stopImmediatePropagation();
+                console.log('button add was clicked');
+                let url = "<%= nodejs %>/add"
+                console.log('button add was clicked, go to = ', url);
+                location.replace(url);
+            });
+            // do update list each time
+            var timesRun = 0; // we make 10 several updates then stop for page to be completly refreshed
+            var interval = setInterval(function() {
+                    timesRun += 1;
+                    if(timesRun === 10){
+                        clearInterval(interval);
+                    };
+
+                    fetch('/listupd', {method: 'GET'})
+                        .then(function(response) {
+                            if(response.ok) return response.json();
+                            throw new Error('Request failed.');
+                        })
+                        .then(function(data) {
+                            document.getElementById('listtable').innerHTML = `${data.table}`;
+                            doListeners();
+                        })
+                        .catch(function(error) {
+                            console.log(error);
+                        });
+            }, 1500);
+
+        };
+    </script>
+</head>
+<body class="container">
+
+<header>
+<!--     // передача переменной -->
+    <%- include('../part/header'); %>
+</header>
+
+<main>
+<div class="row">
+
+    <div class="col-sm-10">
+        <div class="jumbotron">
+            <h1>Look what links you've got!</h1>
+            <table id="listtable">
+                <%- include('../part/table'); %>
+            </table>
+            <div>
+                <p>
+                    <button id="addbutton">Add me!</button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+</main>
+
+<footer>
+    <%- include('../part/footer'); %>
+</footer>
+
+</body>
+</html>

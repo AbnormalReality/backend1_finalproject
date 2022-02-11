@@ -1,0 +1,255 @@
+// +build integration
+
+package repository_test
+
+// go test --tags=integration . --run tests + integration tests. ,
+// '/ +build integration' avoids test to be runned by 'go test .'
+import (
+	"context"
+	"fmt"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/AbnormalReality/backend1_finalproject/web-link/internal/pkg/model"
+	"github.com/AbnormalReality/backend1_finalproject/web-link/internal/pkg/repository"
+	"github.com/stretchr/testify/require"
+
+	"github.com/uber/jaeger-client-go/config"
+	jaegerlog "github.com/uber/jaeger-client-go/log"
+)
+
+func TestIntegrationSVC(t *testing.T) {
+	var repoif, linkSVC repository.RepoIf
+	repoif = new(repository.PgRepo)
+	ctx := context.Background()
+
+	// init tracer
+	jLogger := jaegerlog.StdLogger
+	// tracer config init
+	cfg := &config.Configuration{
+		ServiceName: "weblink",
+		Sampler: &config.SamplerConfig{
+			Type:  "const",
+			Param: 1,
+		},
+		Reporter: &config.ReporterConfig{
+			LocalAgentHostPort: "127.0.0.1:6831",
+			LogSpans:           true,
+		},
+	}
+	jTracer, jCloser, err := cfg.NewTracer(config.Logger(jLogger))
+
+	if err != nil {
+		log.Fatalf("cannot init Jaeger err: %v", err)
+	}
+	// close the closer
+	defer jCloser.Close()
+
+	linkSVC = repoif.New(ctx, "postgres://postuser:postpassword@192.168.1.204:5432/a4", jTracer)
+	// init test struct
+	tests := []struct {
+		name     string
+		alldata  model.Data
+		user     model.User
+		err      error
+		UID      []string
+		prepare  func() []string
+		testfunc func(UID []string) (model.Data, model.User, error)
+		check    func(t *testing.T, alldata model.Data, user model.User, err error)
+		remove   func(UID []string)
+	}{ // slice
+		{ // struct
+			name: "test1",
+			prepare: func() []string {
+				fmt.Print("prepare\n")
+
+				user := model.User{
+					Name:    "test_user1",
+					Passwd:  "123",
+					Email:   "L@u.ca",
+					Balance: "100.00",
+					Role:    "USER",
+				}
+				var UID []string
+				uid, _ := linkSVC.PutUser(user)
+				UID = append(UID, uid)
+				return UID
+			},
+			testfunc: func(UID []string) (model.Data, model.User, error) {
+				fmt.Print("run GetAll()\n")
+				ctx := context.Background()
+				data, err := linkSVC.GetAll(ctx, UID[0])
+				return data, model.User{}, err
+			},
+			check: func(t *testing.T, alldata model.Data, user model.User, err error) {
+				require.NoError(t, err)
+				require.NotEmpty(t, alldata)
+			},
+			remove: func(UID []string) {
+				fmt.Print("remove\n")
+				for _, uid := range UID {
+					linkSVC.DelUser(uid)
+				}
+
+			},
+		},
+		{ // struct
+			name: "test2",
+			prepare: func() []string {
+				fmt.Print("prepare\n")
+
+				user := model.User{
+					Name:    "test_user1",
+					Passwd:  "123",
+					Email:   "L@u.ca",
+					Balance: "100.00",
+					Role:    "USER",
+				}
+				var UID []string
+				uid, _ := linkSVC.PutUser(user)
+				UID = append(UID, uid)
+				return UID
+			},
+			testfunc: func(UID []string) (model.Data, model.User, error) {
+				fmt.Print("run GetUser\n")
+				user, err := linkSVC.GetUser(UID[0])
+				return model.Data{}, user, err
+			},
+			check: func(t *testing.T, alldata model.Data, user model.User, err error) {
+				require.NoError(t, err)
+				require.NotEmpty(t, user)
+			},
+			remove: func(UID []string) {
+				fmt.Print("remove\n")
+				for _, uid := range UID {
+					linkSVC.DelUser(uid)
+				}
+
+			},
+		},
+		{ // struct
+			name: "test3",
+			prepare: func() []string {
+				fmt.Print("prepare\n")
+				//create test user
+				user := model.User{
+					Name:    "test_user1",
+					Passwd:  "123",
+					Email:   "L@u.ca",
+					Balance: "100.00",
+					Role:    "USER",
+				}
+
+				var UID []string
+				uid, _ := linkSVC.PutUser(user)
+				UID = append(UID, uid)
+
+				// add some data to db
+				userdata := model.DataEl{
+					URL:      "mail.ru",
+					Shorturl: "abracadabra.gu",
+					Redirs:   100,
+					Datetime: time.Now(),
+				}
+
+				_ = linkSVC.Put(ctx, uid, userdata.Shorturl, userdata, false)
+
+				return UID
+			},
+			testfunc: func(UID []string) (model.Data, model.User, error) {
+				fmt.Print("run Get\n")
+				userdata, err := linkSVC.Get(ctx, UID[0], "abracadabra.gu", false)
+				var Data model.Data
+				Data.Data = append(Data.Data, userdata)
+				return Data, model.User{}, err
+			},
+			check: func(t *testing.T, alldata model.Data, user model.User, err error) {
+				require.NoError(t, err)
+				require.NotEmpty(t, alldata.Data[0].UID) //some data retrieved
+			},
+			remove: func(UID []string) {
+				fmt.Print("remove\n")
+				for _, uid := range UID {
+					linkSVC.DelUser(uid)
+				}
+
+			},
+		},
+		{ // struct
+			name: "test4",
+			prepare: func() []string {
+				fmt.Print("prepare\n")
+				var UID []string
+				//create test user
+				user := model.User{
+					Name:    "test_user1",
+					Passwd:  "123",
+					Email:   "L@u.ca",
+					Balance: "100.00",
+					Role:    "USER",
+				}
+
+				uid, _ := linkSVC.PutUser(user)
+
+				UID = append(UID, uid)
+
+				// add some data to db
+				userdata := model.DataEl{
+					URL:      "mail.ru",
+					Shorturl: "abracadabra.gu",
+					Redirs:   100,
+					Datetime: time.Now(),
+				}
+
+				_ = linkSVC.Put(ctx, UID[0], userdata.Shorturl, userdata, false)
+
+				user = model.User{
+					Name:    "test_user2",
+					Passwd:  "123",
+					Email:   "L@u.ca",
+					Balance: "100.00",
+					Role:    "USER",
+				}
+
+				uid1, _ := linkSVC.PutUser(user)
+
+				UID = append(UID, uid1)
+
+				return UID
+			},
+			testfunc: func(UID []string) (model.Data, model.User, error) {
+				fmt.Print("run PAY USER 0 to 1\n")
+				err := linkSVC.PayUser(ctx, UID[0], UID[1], "49.99")
+				return model.Data{}, model.User{}, err
+			},
+			check: func(t *testing.T, alldata model.Data, user model.User, err error) {
+				require.NoError(t, err)
+			},
+			remove: func(UID []string) {
+				fmt.Print("remove\n")
+				for _, uid := range UID {
+					linkSVC.DelUser(uid)
+				}
+
+			},
+		},
+	}
+
+	//run table tests in a cycle
+	for _, tt := range tests {
+		tt := tt // // capture range variable
+		// trick to make sure we pass each test case in this range when we run test in parallel
+		// (use t.Parallel()) in run loop
+		// though in sequential run it has no use ie https://eleni.blog/2019/05/11/parallel-test-execution-in-go/
+		t.Run(tt.name, func(t *testing.T) {
+			tt.UID = tt.prepare()
+			tt.alldata, tt.user, tt.err = tt.testfunc(tt.UID)
+			tt.check(t, tt.alldata, tt.user, tt.err)
+			tt.remove(tt.UID)
+		})
+	}
+
+	defer linkSVC.CloseConn()
+
+}
